@@ -312,35 +312,42 @@ def display_asset_analysis(ticker, asset_type):
     name = get_asset_name(ticker, asset_type)
     st.markdown(f"## 📊 {asset_type} Analysis: {name}")
 
-    latest_close = data.iloc[-1]['Close']
-    latest_low = data.iloc[-1]['Low']
-    latest_high = data.iloc[-1]['High']
-    latest_volume = data.iloc[-1]['Volume']
+   # Replace your metrics section with this more robust version:
+
+    # First ensure we're working with scalar values
+    latest_close = data['Close'].iloc[-1] if not data.empty else None
+    latest_low = data['Low'].iloc[-1] if not data.empty else None
+    latest_high = data['High'].iloc[-1] if not data.empty else None
+    latest_volume = data['Volume'].iloc[-1] if not data.empty else None
     
-    if len(data) > 1:
-        change_pct = ((latest_close - data.iloc[-2]['Close']) / data.iloc[-2]['Close'] * 100) 
-    else:
-        change_pct = 0
-
-    col1, col2, col3 = st.columns(3)
-       # In your display_asset_analysis function, replace the metrics section with:
-
+    # Calculate percentage change safely
+    change_pct = None
+    if len(data) > 1 and not data.empty:
+        try:
+            change_pct = ((data['Close'].iloc[-1] - data['Close'].iloc[-2]) / 
+                         data['Close'].iloc[-2]) * 100
+        except (IndexError, ZeroDivisionError):
+            change_pct = None
+    
+    # Now display the metrics
     col1, col2, col3 = st.columns(3)
     col1.metric(
         "Current Price", 
-        f"${float(latest_close):.2f}" if pd.notna(latest_close) else "N/A", 
-        f"{float(change_pct):.2f}%" if pd.notna(change_pct) else "N/A"
+        f"${float(latest_close):.2f}" if latest_close is not None else "N/A", 
+        f"{float(change_pct):.2f}%" if change_pct is not None else "N/A"
     )
     col2.metric(
         "Day Range", 
         f"${float(latest_low):.2f} - ${float(latest_high):.2f}" 
-        if all(pd.notna(x) for x in [latest_low, latest_high]) 
+        if all(x is not None for x in [latest_low, latest_high]) 
         else "N/A"
     )
     col3.metric(
         "Volume", 
-        f"{int(float(latest_volume)):,}" if pd.notna(latest_volume) else "N/A"
+        f"{int(float(latest_volume)):,}" if latest_volume is not None else "N/A"
     )
+
+    
     # Recent data
     st.subheader("📄 Recent Market Data")
     st.dataframe(data.sort_values('Date', ascending=False).head(15), use_container_width=True)
