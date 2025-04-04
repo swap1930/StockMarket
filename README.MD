@@ -111,7 +111,7 @@
 📍 GPKP | SYIT Student | Aspiring Data Scientist 
 
 📧 Email: swapnildudhane1930@gmail.com 
-💼 LinkedIn: www.linkedin.com/in/swapnil1930
+💼 LinkedIn: www.linkedin.com/in/swapnil1930 <br>
 💻 GitHub: https://github.com/swap1930
 
 ---
