@@ -350,6 +350,7 @@ def display_asset_analysis(ticker, asset_type):
     if end_date == datetime.today().date():
         st.subheader("💹 Current Market Data")
         st.dataframe(data.tail(1))
+        st.dataframe(data.sort_values('Date', ascending=False).head(15), use_container_width=True)
 
     # Daily returns analysis
     st.subheader("📉 Daily Return Analysis")
@@ -383,9 +384,11 @@ def display_asset_analysis(ticker, asset_type):
     ma_fig.update_layout(barmode='overlay', xaxis_title='Moving Average Value', yaxis_title='Frequency')
     st.plotly_chart(ma_fig, use_container_width=True)
 
-    # Future price prediction
-    st.subheader("📈 Future Price Prediction")
-    if len(data) > 1:
+   # Replace the future prediction section with this code:
+
+st.subheader("📈 Future Price Prediction")
+if len(data) > 1:
+    try:
         data['Date_Ordinal'] = data['Date'].map(pd.Timestamp.toordinal)
         model = LinearRegression()
         model.fit(data[['Date_Ordinal']], data['Close'])
@@ -395,12 +398,12 @@ def display_asset_analysis(ticker, asset_type):
         future_preds = model.predict(np.array(future_ordinals).reshape(-1, 1))
         
         last_price = data['Close'].iloc[-1]
-        pred_change = future_preds[-1] - last_price
-        pred_change_pct = (pred_change / last_price) * 100
+        pred_change = float(future_preds[-1][0]) - float(last_price)
+        pred_change_pct = (pred_change / float(last_price)) * 100
         
         st.metric(
             "Projected Price in 30 Days",
-            f"${future_preds[-1]:.2f}",
+            f"${float(future_preds[-1][0]):.2f}",
             f"{pred_change_pct:.1f}% ({'↑' if pred_change >= 0 else '↓'} ${abs(pred_change):.2f})"
         )
         st.info("⚠️ Note: Simple linear projection")
@@ -417,7 +420,7 @@ def display_asset_analysis(ticker, asset_type):
             ))
             fig.add_hline(
                 y=last_price, line_dash="dash",
-                annotation_text=f"Current: ${last_price:.2f}"
+                annotation_text=f"Current: ${float(last_price):.2f}"
             )
             fig.update_layout(height=400, xaxis_title="Date", yaxis_title="Price ($)")
             st.plotly_chart(fig, use_container_width=True)
@@ -425,8 +428,10 @@ def display_asset_analysis(ticker, asset_type):
         with tab2:
             st.dataframe(pd.DataFrame({
                 'Date': future_dates,
-                'Predicted Price': future_preds.flatten()
+                'Predicted Price': [float(x[0]) for x in future_preds]
             }))
+    except Exception as e:
+        st.error(f"Could not generate prediction: {str(e)}")
 
 # Main app logic
 if not ticker:
