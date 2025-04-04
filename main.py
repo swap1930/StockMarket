@@ -32,14 +32,11 @@ except AttributeError:
         
 # Configure requests session for yfinance
 urllib3.disable_warnings()
-session = requests.Session()
-session.headers.update({
-    'User-Agent': 'Mozilla/5.0',
-    'Accept': '*/*',
-    'Accept-Language': 'en-US,en;q=0.9'
-})
-session.timeout = 10  # 10 second timeout
-yf.set_session(session)
+
+yf.pdr_override()  # Only needed if using pandas_datareader compatibility
+
+# Set yfinance options
+yf.set_option("use_pydantic", False)
 
 # Configure Streamlit page
 st.set_page_config(page_title="MarketMatrix", layout="wide", page_icon="🌐")
