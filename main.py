@@ -288,22 +288,42 @@ def display_crypto_overview():
 
     if st.button("🔄 Refresh Crypto Data"):
         st.cache_data.clear()
-
 def display_asset_analysis(ticker, asset_type):
-    if len(date_range) != 2:
-        st.warning("Please select both start and end dates")
+    """Display detailed analysis for a given asset"""
+    # 1. Validate date range input
+    if not hasattr(date_range, '__len__') or len(date_range) != 2:
+        st.warning("⚠️ Please select both start and end dates")
         return
 
-    start_date, end_date = date_range
-    data = load_data(ticker, start_date, end_date + timedelta(days=1))
+    try:
+        # 2. Load data with validation
+        start_date, end_date = date_range
+        data = load_data(ticker, start_date, end_date + timedelta(days=1))
+        
+        # 3. Verify we got valid data
+        if not isinstance(data, pd.DataFrame) or data.empty:
+            st.error("🚨 No data found. Please check:")
+            st.error(f"- Ticker symbol: {ticker}")
+            st.error(f"- Date range: {start_date} to {end_date}")
+            return
 
-    if data.empty:
-        st.error("No data found. Please check the ticker symbol.")
+        # 4. Get asset name safely
+        try:
+            name = get_asset_name(ticker, asset_type)
+        except Exception as e:
+            st.warning(f"Couldn't get full asset name: {str(e)}")
+            name = ticker
+
+        # 5. Display header
+        st.markdown(f"## 📊 {asset_type} Analysis: {name}")
+
+        # --- Rest of your analysis code goes here ---
+        # [Keep your existing metric calculations and visualizations]
+
+    except Exception as e:
+        st.error(f"❌ Analysis failed: {str(e)}")
+        st.error("Please try different parameters or check the ticker symbol")
         return
-
-    # Basic metrics
-    name = get_asset_name(ticker, asset_type)
-    st.markdown(f"## 📊 {asset_type} Analysis: {name}")
 
    # Replace your metrics section with this more robust version:
 
