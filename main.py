@@ -8,227 +8,57 @@ import numpy as np
 from functools import wraps
 import time
 import random
-
-import yfinance as yf
-yf.pdr_override()  # Fix for some yfinance issues
-
-# Set user agent to prevent blocking
 import requests
 import urllib3
+from packaging import version
+import pkg_resources
+
+# Initialize yfinance with proper settings
+yf.pdr_override()
+
+# Configure requests session for yfinance
 urllib3.disable_warnings()
 session = requests.Session()
-session.headers.update({'User-Agent': 'Mozilla/5.0'})
+session.headers.update({
+    'User-Agent': 'Mozilla/5.0',
+    'Accept': '*/*',
+    'Accept-Language': 'en-US,en;q=0.9'
+})
+session.timeout = 10  # 10 second timeout
 yf.set_session(session)
 
-# Configure page
-st.set_page_config(page_title=" MarketMatrix", layout="wide",
-                   page_icon="🌐")
-st.title("🌐 MarketMatrix ")
+# Configure Streamlit page
+st.set_page_config(page_title="MarketMatrix", layout="wide", page_icon="🌐")
+st.title("🌐 MarketMatrix")
 
+# Hide default Streamlit elements
 hide_st_style = """
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    /* Try hiding the toolbar via its role attribute */
     [data-testid="stToolbar"] {display: none !important;}
     </style>
 """
-
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# Sidebar input
-asset_type = st.sidebar.selectbox("Select Asset Type", ["Stock", "Crypto"])
-
-STOCK_EXAMPLES = {
-    # US Stocks
-    'AAPL': 'Apple',
-    'MSFT': 'Microsoft',
-    'GOOGL': 'Alphabet',
-    'AMZN': 'Amazon',
-    'TSLA': 'Tesla',
-    'META': 'Meta',
-    'NVDA': 'NVIDIA',
-    'JPM': 'JPMorgan',
-
-    # Indian Stocks
-    'RELIANCE.NS': 'Reliance',
-    'TCS.NS': 'TCS',
-    'HDFCBANK.NS': 'HDFC Bank',
-    'INFY.NS': 'Infosys',
-    'BHARTIARTL.NS': 'Airtel',
-
-    # International
-    '005930.KS': 'Samsung (KR)',
-    '7203.T': 'Toyota (JP)',
-    'HSBA.L': 'HSBC (UK)'
-}
-
-CRYPTO_EXAMPLES = {
-    'BTC-USD': 'Bitcoin',
-    'ETH-USD': 'Ethereum',
-    'BNB-USD': 'Binance Coin',
-    'XRP-USD': 'Ripple',
-    'SOL-USD': 'Solana',
-    'DOGE-USD': 'Dogecoin',
-    'ADA-USD': 'Cardano',
-    'DOT-USD': 'Polkadot',
-    'SHIB-USD': 'Shiba Inu',
-    'MATIC-USD': 'Polygon'
-}
-# Show appropriate examples (limited to 5)
-st.sidebar.markdown("**Examples**: ")
-if asset_type == "Stock":
-    # Get first 5 stock examples
-    for ticker, desc in list(STOCK_EXAMPLES.items())[:5]:
-        st.sidebar.markdown(f"• {ticker} ({desc})")
-else:
-    # Get first 5 crypto examples
-    for ticker, desc in list(CRYPTO_EXAMPLES.items())[:5]:
-        st.sidebar.markdown(f"• {ticker} ({desc})")
-
-ticker = st.sidebar.text_input("Enter Ticker Symbol", "")
-
-# Date range selector
-end_date = datetime.today()
-start_date = end_date - timedelta(days=5*365)
-date_range = st.sidebar.date_input("Select Date Range", [start_date, end_date])
-
+# Version check function
 def check_versions():
-    import pkg_resources
     required = {
         'yfinance': '0.2.38',
         'pandas': '2.0.0',
         'requests': '2.31.0'
     }
     for pkg, ver in required.items():
-        current = pkg_resources.get_distribution(pkg).version
-        if pkg_resources.parse_version(current) < pkg_resources.parse_version(ver):
-            st.warning(f"⚠️ {pkg} version {current} is below recommended {ver}")
+        try:
+            current = pkg_resources.get_distribution(pkg).version
+            if version.parse(current) < version.parse(ver):
+                st.warning(f"⚠️ {pkg} version {current} is below recommended {ver}")
+        except Exception as e:
+            st.error(f"Error checking {pkg} version: {str(e)}")
 
-# Call this early in your app
-check_versions()
-@st.cache_data
-def get_asset_name(ticker, asset_type):
-    try:
-        if asset_type == "Stock":
-            stock = yf.Ticker(ticker)
-            return stock.info.get("longName", ticker)
-        else:
-            return ticker
-    except Exception as e:
-        st.error(f"Error fetching asset name: {str(e)}")
-        return ticker
-
-def check_versions():
-    import pkg_resources
-    required = {
-        'yfinance': '0.2.38',
-        'pandas': '2.0.0',
-        'requests': '2.31.0'
-    }
-    for pkg, ver in required.items():
-        current = pkg_resources.get_distribution(pkg).version
-        if pkg_resources.parse_version(current) < pkg_resources.parse_version(ver):
-            st.warning(f"⚠️ {pkg} version {current} is below recommended {ver}")
-
-# Call this early in your app
 check_versions()
 
-
-@st.cache_data(ttl=60*5)
-def load_data(ticker, start_date, end_date):
-    try:
-        data = yf.download(
-            ticker, 
-            start=start_date, 
-            end=end_date + timedelta(days=1),
-            progress=False,
-            threads=True
-        )
-        if data.empty:
-            st.warning(f"No data found for {ticker}. Trying again with different parameters...")
-            # Try alternative approach
-            ticker_obj = yf.Ticker(ticker)
-            data = ticker_obj.history(start=start_date, end=end_date + timedelta(days=1))
-            
-        if data.empty:
-            return pd.DataFrame()
-            
-        data.reset_index(inplace=True)
-        return data
-    except Exception as e:
-        st.error(f"Error loading data for {ticker}: {str(e)}")
-        return pd.DataFrame()
-
-
-def validate_ticker(ticker, asset_type):
-    """More flexible validation that first checks our examples, then tries yfinance"""
-    if not ticker:
-        return False
-
-    # First check against our known examples
-    resolved = resolve_ticker(ticker, asset_type)
-    if asset_type == "Stock":
-        if resolved in STOCK_EXAMPLES or (resolved + '.NS') in STOCK_EXAMPLES:
-            return True
-    else:
-        if resolved in CRYPTO_EXAMPLES or (resolved + '-USD') in CRYPTO_EXAMPLES:
-            return True
-
-    # If not in our examples, still allow it (yfinance might know it)
-    return True
-
-
-
-
-def resolve_ticker(input_str, asset_type):
-    """Resolve input to best ticker format"""
-    input_str = input_str.strip().upper()
-    if not input_str:
-        return input_str
-
-    # For stocks
-    if asset_type == "Stock":
-        # Check exact matches first
-        if input_str in STOCK_EXAMPLES:
-            return input_str
-        if input_str + '.NS' in STOCK_EXAMPLES:
-            return input_str + '.NS'
-
-        # Check name matches (case insensitive)
-        input_lower = input_str.lower()
-        for ticker, name in STOCK_EXAMPLES.items():
-            if input_lower == name.lower():
-                return ticker
-            if input_lower in name.lower():  # Partial match
-                return ticker
-
-        # For international stocks, try common suffixes
-        if not input_str.endswith(('.NS', '.KS', '.T', '.L')):
-            test_tickers = [
-                input_str + '.NS',  # Indian stocks
-                input_str + '.KS',  # Korean stocks
-                input_str + '.T',  # Japanese stocks
-                input_str + '.L'  # London stocks
-            ]
-            for test_ticker in test_tickers:
-                if test_ticker in STOCK_EXAMPLES:
-                    return test_ticker
-
-    # For cryptos
-    else:
-        if input_str in CRYPTO_EXAMPLES:
-            return input_str
-        if input_str + '-USD' in CRYPTO_EXAMPLES:
-            return input_str + '-USD'
-        for ticker, name in CRYPTO_EXAMPLES.items():
-            if input_str.lower() == name.lower():
-                return ticker
-
-    # Return original if no match found (will attempt with yfinance)
-    return input_str
-
-
+# Retry decorator for API calls
 def retry(max_retries=3, delay=1):
     def decorator(func):
         @wraps(func)
@@ -245,26 +75,117 @@ def retry(max_retries=3, delay=1):
         return wrapper
     return decorator
 
-# Then decorate your functions
-@retry(max_retries=3, delay=1)
-@st.cache_data(ttl=60*5)
-def load_data(ticker, start_date, end_date):
-    # ... existing code ...
-  
+# Asset examples
+STOCK_EXAMPLES = {
+    'AAPL': 'Apple', 'MSFT': 'Microsoft', 'GOOGL': 'Alphabet', 
+    'AMZN': 'Amazon', 'TSLA': 'Tesla', 'META': 'Meta', 
+    'NVDA': 'NVIDIA', 'JPM': 'JPMorgan', 'RELIANCE.NS': 'Reliance',
+    'TCS.NS': 'TCS', 'HDFCBANK.NS': 'HDFC Bank', 'INFY.NS': 'Infosys',
+    'BHARTIARTL.NS': 'Airtel', '005930.KS': 'Samsung (KR)',
+    '7203.T': 'Toyota (JP)', 'HSBA.L': 'HSBC (UK)'
+}
 
+CRYPTO_EXAMPLES = {
+    'BTC-USD': 'Bitcoin', 'ETH-USD': 'Ethereum', 'BNB-USD': 'Binance Coin',
+    'XRP-USD': 'Ripple', 'SOL-USD': 'Solana', 'DOGE-USD': 'Dogecoin',
+    'ADA-USD': 'Cardano', 'DOT-USD': 'Polkadot', 'SHIB-USD': 'Shiba Inu',
+    'MATIC-USD': 'Polygon'
+}
+
+# Sidebar inputs
+asset_type = st.sidebar.selectbox("Select Asset Type", ["Stock", "Crypto"])
+st.sidebar.markdown("**Examples**: ")
+for ticker, desc in list(STOCK_EXAMPLES.items()[:5] if asset_type == "Stock" else list(CRYPTO_EXAMPLES.items()[:5]):
+    st.sidebar.markdown(f"• {ticker} ({desc})")
+
+ticker = st.sidebar.text_input("Enter Ticker Symbol", "")
+end_date = datetime.today()
+start_date = end_date - timedelta(days=5*365)
+date_range = st.sidebar.date_input("Select Date Range", [start_date, end_date])
+
+# Connection test function
 def check_connection():
     try:
-        response = requests.get("https://query1.finance.yahoo.com/v8/finance/chart/AAPL?range=1d")
-        st.write(f"Connection test status: {response.status_code}")
-        st.write(f"Response content: {response.text[:200]}...")
+        response = session.get("https://query1.finance.yahoo.com/v8/finance/chart/AAPL?range=1d", timeout=5)
         return response.status_code == 200
     except Exception as e:
         st.error(f"Connection test failed: {str(e)}")
         return False
 
-# Call this somewhere in your app
 if st.sidebar.checkbox("Run connection test"):
-    check_connection()
+    if check_connection():
+        st.sidebar.success("✅ Connection to Yahoo Finance successful")
+    else:
+        st.sidebar.error("❌ Could not connect to Yahoo Finance")
+
+# Data loading function with retry and cache
+@retry(max_retries=3, delay=1)
+@st.cache_data(ttl=60*5)
+def load_data(ticker, start_date, end_date):
+    try:
+        data = yf.download(
+            ticker, 
+            start=start_date, 
+            end=end_date + timedelta(days=1),
+            progress=False,
+            threads=True
+        )
+        if data.empty:
+            ticker_obj = yf.Ticker(ticker)
+            data = ticker_obj.history(start=start_date, end=end_date + timedelta(days=1))
+            
+        if not data.empty:
+            data.reset_index(inplace=True)
+            return data
+        return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Error loading data for {ticker}: {str(e)}")
+        return pd.DataFrame()
+
+# Ticker resolution functions
+def resolve_ticker(input_str, asset_type):
+    input_str = input_str.strip().upper()
+    if not input_str:
+        return input_str
+
+    if asset_type == "Stock":
+        if input_str in STOCK_EXAMPLES:
+            return input_str
+        if input_str + '.NS' in STOCK_EXAMPLES:
+            return input_str + '.NS'
+
+        input_lower = input_str.lower()
+        for t, name in STOCK_EXAMPLES.items():
+            if input_lower == name.lower():
+                return t
+            if input_lower in name.lower():
+                return t
+
+        if not input_str.endswith(('.NS', '.KS', '.T', '.L')):
+            for suffix in ['.NS', '.KS', '.T', '.L']:
+                if input_str + suffix in STOCK_EXAMPLES:
+                    return input_str + suffix
+    else:
+        if input_str in CRYPTO_EXAMPLES:
+            return input_str
+        if input_str + '-USD' in CRYPTO_EXAMPLES:
+            return input_str + '-USD'
+        for t, name in CRYPTO_EXAMPLES.items():
+            if input_str.lower() == name.lower():
+                return t
+
+    return input_str
+
+@st.cache_data
+def get_asset_name(ticker, asset_type):
+    try:
+        if asset_type == "Stock":
+            stock = yf.Ticker(ticker)
+            return stock.info.get("longName", ticker)
+        return ticker
+    except Exception:
+        return ticker
+
 
 def display_stock_overview():
     st.subheader("📈 Stock Market Dashboard")
