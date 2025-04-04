@@ -33,8 +33,7 @@ except AttributeError:
 # Configure requests session for yfinance
 urllib3.disable_warnings()
 
-# Set yfinance options
-yf.set_option("use_pydantic", False)
+
 
 # Configure Streamlit page
 st.set_page_config(page_title="MarketMatrix", layout="wide", page_icon="🌐")
