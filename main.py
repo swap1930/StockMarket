@@ -92,10 +92,14 @@ CRYPTO_EXAMPLES = {
     'MATIC-USD': 'Polygon'
 }
 
+
 # Sidebar inputs
 asset_type = st.sidebar.selectbox("Select Asset Type", ["Stock", "Crypto"])
 st.sidebar.markdown("**Examples**: ")
-for ticker, desc in list(STOCK_EXAMPLES.items()[:5] if asset_type == "Stock" else list(CRYPTO_EXAMPLES.items()[:5]):
+
+# Fixed the syntax error in this line - removed the extra list() and fixed parentheses
+example_items = list(STOCK_EXAMPLES.items())[:5] if asset_type == "Stock" else list(CRYPTO_EXAMPLES.items())[:5]
+for ticker, desc in example_items:
     st.sidebar.markdown(f"• {ticker} ({desc})")
 
 ticker = st.sidebar.text_input("Enter Ticker Symbol", "")
