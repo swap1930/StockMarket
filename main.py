@@ -370,9 +370,10 @@ def display_asset_analysis(ticker, asset_type):
 
     # Show the current or predicted data based on the selected date
     if end_date == datetime.today().date():
-        st.subheader("💹 Current Market Data")
-        st.dataframe(data.tail(1))  # Display the latest data row
-
+            st.dataframe(
+                data.tail(1).reset_index(drop=True),
+                use_container_width=True
+            )
 
 
     # Daily returns analysis
