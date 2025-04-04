@@ -361,14 +361,19 @@ def display_asset_analysis(ticker, asset_type):
     )
 
     
-    # Recent data
-    st.subheader("📄 Recent Market Data")
-    st.dataframe(data.sort_values('Date', ascending=False).head(15), use_container_width=True)
+   # 📄 Recent Market Data (Last 15 Entries)
+    st.subheader("📄 Recent Market Data (Last 15 Entries)")
+    st.dataframe(
+        data.sort_values('Date', ascending=False).head(15).reset_index(drop=True),
+        use_container_width=True
+    )
 
+    # Show the current or predicted data based on the selected date
     if end_date == datetime.today().date():
         st.subheader("💹 Current Market Data")
-        st.dataframe(data.tail(1))
-        st.dataframe(data.sort_values('Date', ascending=False).head(15), use_container_width=True)
+        st.dataframe(data.tail(1))  # Display the latest data row
+
+
 
     # Daily returns analysis
     st.subheader("📉 Daily Return Analysis")
@@ -401,135 +406,227 @@ def display_asset_analysis(ticker, asset_type):
     ma_fig.add_trace(go.Histogram(x=data['MA50'].dropna(), name='MA50', marker_color='#27AE60'))
     ma_fig.update_layout(barmode='overlay', xaxis_title='Moving Average Value', yaxis_title='Frequency')
     st.plotly_chart(ma_fig, use_container_width=True)
-# Future Price Prediction Section - Verified Correct
-st.subheader("📈 Future Price Prediction")
 
-# First validate we have good data to work with
-st.subheader("📈 Future Price Prediction")
 
-# First check if data exists at all
-if 'data' not in locals() or 'data' not in globals():
-    st.error("Data not available for prediction")
-    return
+    # Future Price Prediction Section
+    st.subheader("📈 Future Price Prediction")
 
-# Then check if we have enough data points
-if not hasattr(data, 'empty') or data.empty or len(data) <= 10:
-    st.warning(f"Not enough historical data (need >10 points, has {len(data) if 'data' in locals() else 0})")
-    return
+    # 1. Calculate predictions
+    data['Date_Ordinal'] = pd.to_datetime(data['Date']).map(pd.Timestamp.toordinal)
+    model = LinearRegression()
+    model.fit(data[['Date_Ordinal']], data['Close'])
 
-# Rest of your prediction code...
-if not data.empty and len(data) > 10:  # Require minimum 10 data points
-    try:
-        # 1. Prepare the data - ensure we have valid dates and prices
-        if 'Date' not in data.columns or 'Close' not in data.columns:
-            raise ValueError("Missing required Date or Close columns")
-            
-        # Convert dates to ordinal numbers (required for linear regression)
-        data['Date_Ordinal'] = data['Date'].map(lambda x: x.toordinal())
-        
-        # 2. Train the model with validation
-        X = data[['Date_Ordinal']].values.reshape(-1, 1)
-        y = data['Close'].values
-        
-        model = LinearRegression()
-        model.fit(X, y)
-        
-        # 3. Generate future predictions (next 30 days)
-        last_date = data['Date'].iloc[-1]
-        future_dates = pd.date_range(
-            start=last_date + pd.Timedelta(days=1),
-            periods=30
-        )
-        
-        future_ordinals = np.array([d.toordinal() for d in future_dates]).reshape(-1, 1)
-        future_preds = model.predict(future_ordinals)
-        
-        # 4. Calculate metrics with safety checks
-        last_price = float(data['Close'].iloc[-1])
-        last_pred = float(future_preds[-1])
-        
-        pred_change = last_pred - last_price
-        pred_change_pct = (pred_change / last_price) * 100 if last_price != 0 else 0
-        
-        # 5. Display the prediction metrics
-        st.metric(
-            "Projected Price in 30 Days",
-            f"${last_pred:.2f}",
-            f"{pred_change_pct:.1f}% ({'↑' if pred_change >= 0 else '↓'} ${abs(pred_change):.2f})"
-        )
-        st.warning("Note: These are simple linear projections - actual prices may vary")
-        
-        # 6. Enhanced visualization with two tabs
-        tab1, tab2 = st.tabs(["📈 Price Trend", "📋 Prediction Data"])
-        
-        with tab1:
-            fig = go.Figure()
-            # Historical data
-            fig.add_trace(go.Scatter(
-                x=data['Date'],
-                y=data['Close'],
-                mode='lines',
-                name='Historical Prices',
-                line=dict(color='#1f77b4', width=2)
-            ))
-            # Predicted data
-            fig.add_trace(go.Scatter(
-                x=future_dates,
-                y=future_preds,
-                mode='lines+markers',
-                name='Predicted Prices',
-                line=dict(color='#ff7f0e', width=2)
-            ))
-            # Current price reference line
-            fig.add_hline(
-                y=last_price,
-                line_dash="dot",
-                annotation_text=f"Current Price: ${last_price:.2f}",
-                line_color="green"
+    # Predict for next 30 days
+    future_dates = pd.date_range(data['Date'].iloc[-1], periods=30)
+    future_ordinals = future_dates.map(pd.Timestamp.toordinal)
+    future_preds = model.predict(np.array(future_ordinals).reshape(-1, 1))
+
+    # Convert predictions to float explicitly
+    future_preds = future_preds.flatten().astype(float)
+    last_price = float(data['Close'].iloc[-1])
+    pred_change = float(future_preds[-1]) - last_price
+    pred_change_pct = (pred_change / last_price) * 100
+
+    # Projected price metric
+    st.metric(
+        "Projected Price in 30 Days",
+        f"${float(future_preds[-1]):.2f}",
+        f"{pred_change_pct:.1f}% ({'↑' if pred_change >= 0 else '↓'} ${abs(pred_change):.2f})",
+        delta_color="normal"
+    )
+    st.info("⚠️ Note: Simple linear projection")
+
+
+    st.subheader("Predicted Market Data")
+    future_df = pd.DataFrame({
+        'Date': future_dates,
+        'Close': future_preds.flatten()
+    })
+    st.dataframe(future_df)
+
+    # Create tabs for different visualization styles
+    tab1, tab2 = st.tabs(["📊 Price Distribution", "📈 Price Trend"])
+    with tab1:
+        # Title
+        st.markdown("**Daily Price Trend**")
+
+        # Date range for predictions
+        pred_dates = pd.date_range(start=date_range[0], periods=len(future_preds))
+
+        # Create figure with proper sizing
+        pyramid_fig = go.Figure()
+
+        # Interpolate between the start and end prices
+        x_start = pred_dates[0]
+        x_end = pred_dates[-1]
+        y_start = latest_close
+        y_end = future_preds[-1]
+
+        # Steps for smoothness
+        steps = len(pred_dates)
+        x_interp = np.linspace(0, 1, steps)
+
+        # Detect price direction and apply proper curve
+        if y_end >= y_start:
+            y_interp = y_start + (y_end - y_start) * (0.5 - 0.5 * np.cos(np.pi * x_interp))
+            color = '#27AE60'  # Green for upward
+        else:
+            y_interp = y_start - abs(y_end - y_start) * (0.5 - 0.5 * np.cos(np.pi * x_interp))
+            color = '#E74C3C'  # Red for downward
+
+        # Create interpolated x-axis values
+        x_curve = pd.date_range(start=x_start, end=x_end, periods=steps)
+
+        # Add the smooth curve line
+        pyramid_fig.add_trace(go.Scatter(
+            x=x_curve,
+            y=y_interp,
+            mode='lines',
+            line=dict(color=color, width=3),
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+
+        # Add current price point (blue dot)
+        pyramid_fig.add_trace(go.Scatter(
+            x=[pred_dates[0]],
+            y=[y_start],
+            mode='markers+text',
+            marker=dict(color='#3498DB', size=12),
+            text=["●"],
+            textposition="middle center",
+            textfont=dict(size=18),
+            showlegend=False,
+            hoverinfo='text',
+            hovertext=f"Current Price: ${y_start:.2f}"
+        ))
+
+        # Add predicted price point (purple dot)
+        pyramid_fig.add_trace(go.Scatter(
+            x=[pred_dates[-1]],
+            y=[y_end],
+            mode='markers+text',
+            marker=dict(color='#9B59B6', size=12),
+            text=["●"],
+            textposition="middle center",
+            textfont=dict(size=18),
+            showlegend=False,
+            hoverinfo='text',
+            hovertext=f"Predicted Price: ${y_end:.2f}"
+        ))
+
+        # Determine overall line direction
+        overall_change = y_end - y_start
+        arrow_symbol = "▲" if overall_change >= 0 else "▼"
+        arrow_color = '#27AE60' if overall_change >= 0 else '#E74C3C'
+
+        # Add directional arrows
+        for i in range(1, len(future_preds)):
+            xi = (pred_dates[i] - pred_dates[0]).days
+            yi_line = y_start + (y_end - y_start) * (xi / (pred_dates[-1] - pred_dates[0]).days)
+
+            pyramid_fig.add_annotation(
+                x=pred_dates[i],
+                y=yi_line,
+                text=arrow_symbol,
+                showarrow=False,
+                font=dict(color=arrow_color, size=12)
             )
-            fig.update_layout(
-                title="Price Projection Trend",
-                xaxis_title="Date",
-                yaxis_title="Price ($)",
-                hovermode="x unified",
-                height=500
+
+        # Optimized layout settings to prevent overflow
+        pyramid_fig.update_layout(
+            template="plotly_white",
+            height=400,  # Reduced height for better fit
+            margin=dict(l=40, r=40, t=40, b=40),  # Balanced margins
+            hovermode="x unified",
+            showlegend=False,
+            xaxis=dict(
+                title="Date",
+                tickformat="%b %d",
+                rangeslider=dict(visible=False),  # Disable range slider to save space
+                automargin=True  # Auto-adjust margins
+            ),
+            yaxis=dict(
+                title="Price ($)",
+                range=[min(min(future_preds), y_start) * 0.99,
+                       max(max(future_preds), y_start) * 1.01],
+                automargin=True
             )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with tab2:
-            # Create prediction table with daily changes
-            prediction_data = {
-                'Date': future_dates,
-                'Predicted Price': future_preds.round(2),
-                'Daily Change ($)': np.round(np.diff(future_preds, prepend=future_preds[0]), 2),
-                'Daily Change (%)': np.round(
-                    np.diff(future_preds, prepend=future_preds[0]) / future_preds * 100, 
-                    2
-                )
+        )
+
+        # Hover formatting
+        pyramid_fig.update_traces(
+            hovertemplate="<b>%{x|%b %d}</b><br>Price: $%{y:.2f}<extra></extra>"
+        )
+
+
+        # 5. DISPLAY WITH FULL CONTROLS
+        st.plotly_chart(
+            pyramid_fig,
+            use_container_width=True,
+            config={
+                'modeBarButtonsToRemove': [
+                    'select2d',  # Keep this if you want rectangle select
+                    'lasso2d',  # Keep this if you want lasso select
+                ],
+                'displayModeBar': True,
+                'displaylogo': False,
+                'displayModeBar': 'hover'
             }
-            prediction_df = pd.DataFrame(prediction_data)
-            
-            # Format the display
-            st.dataframe(
-                prediction_df.style.format({
-                    'Predicted Price': '${:.2f}',
-                    'Daily Change ($)': '${:.2f}',
-                    'Daily Change (%)': '{:.2f}%'
-                }),
-                use_container_width=True
-            )
-            
-    except Exception as e:
-        st.error(f"⚠️ Prediction error: {str(e)}")
-        st.error("Please try a different date range or ticker symbol")
-else:
-    st.warning("""
-    Not enough historical data for predictions. 
-    Requires at least 10 days of historical data.
-    Current data points: {}
-    """.format(len(data)))
+        )
 
-# Main app logic - ensure data is always defined
+        # Legend (unchanged)
+        st.markdown("""
+                 <div style="text-align: center; margin-top: -10px;">
+                     <span style="color: #3498DB; font-weight: bold;">● Current Price</span>
+                     <span style="margin: 0 10px;">|</span>
+                     <span style="color: #9B59B6; font-weight: bold;">● Predicted Price</span>
+                     <span style="margin: 0 10px;">|</span>
+                     <span style="color: #27AE60; font-weight: bold;">▲ Increase</span>
+                     <span style="margin: 0 10px;">|</span>
+                     <span style="color: #E74C3C; font-weight: bold;">▼ Decrease</span>
+                 </div>
+                 """, unsafe_allow_html=True)
+
+    with tab2:
+        # Line Chart - Predicted Prices Over Time
+        st.markdown("**Predicted Price Trend**")
+
+        # Check trend direction
+        trend_color = '#27AE60' if future_preds[-1] >= future_preds[0] else '#E74C3C'
+
+        # Create line chart
+        fig_line = go.Figure()
+        fig_line.add_trace(go.Scatter(
+            x=future_dates,
+            y=future_preds,
+            mode='lines+markers',
+            line=dict(color=trend_color, width=2),
+            marker=dict(size=6),
+            name='Predicted Price'
+        ))
+
+        # Add reference line for current price
+        fig_line.add_hline(
+            y=last_price,
+            line_dash="dash",
+            line_color="#3498DB",
+            annotation_text=f"Current Price: ${last_price:.2f}",
+            annotation_position="bottom right"
+        )
+
+        fig_line.update_layout(
+            height=400,
+            xaxis_title="Date",
+            yaxis_title="Price ($)",
+            showlegend=False,
+            template="plotly_white"
+        )
+
+        st.plotly_chart(fig_line, use_container_width=True)
+
+# Main app logic
+
 if not ticker:
     if asset_type == "Stock":
         display_stock_overview()
@@ -537,10 +634,27 @@ if not ticker:
         display_crypto_overview()
 else:
     resolved_ticker = resolve_ticker(ticker, asset_type)
-    data = load_data(resolved_ticker, date_range[0], date_range[1] + timedelta(days=1))
-    
-    if data is None or data.empty:
-        examples = (STOCK_EXAMPLES if asset_type == "Stock" else CRYPTO_EXAMPLES)
-        st.error(f"⚠️ Could not load data for '{ticker}'. Try: {', '.join(list(examples.keys())[:3])}")
+
+    # Always try to load data first
+    start_date, end_date = date_range
+    data = load_data(resolved_ticker, start_date, end_date + timedelta(days=1))
+
+    if data.empty:
+        # Only show error if we can't get data
+        if asset_type == "Stock":
+            example_tickers = ['AAPL', 'RELIANCE.NS', '005930.KS']
+            example_names = ['Apple', 'Reliance', 'Samsung']
+            st.error(
+                f"⚠️ Could not find data for '{ticker}'. Valid examples: "
+                f"{', '.join(example_tickers)} or {', '.join(example_names)}"
+            )
+        else:
+            example_tickers = ['BTC-USD', 'SOL-USD']
+            example_names = ['Bitcoin', 'Solana']
+            st.error(
+                f"⚠️ Could not find data for '{ticker}'. Valid examples: "
+                f"{', '.join(example_tickers)} or {', '.join(example_names)}"
+            )
     else:
-        display_asset_analysis(resolved_ticker, asset_type, data)  # Pass data as parameter
+        display_asset_analysis(resolved_ticker, asset_type)
+
