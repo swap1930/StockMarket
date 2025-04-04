@@ -405,6 +405,19 @@ def display_asset_analysis(ticker, asset_type):
 st.subheader("📈 Future Price Prediction")
 
 # First validate we have good data to work with
+st.subheader("📈 Future Price Prediction")
+
+# First check if data exists at all
+if 'data' not in locals() or 'data' not in globals():
+    st.error("Data not available for prediction")
+    return
+
+# Then check if we have enough data points
+if not hasattr(data, 'empty') or data.empty or len(data) <= 10:
+    st.warning(f"Not enough historical data (need >10 points, has {len(data) if 'data' in locals() else 0})")
+    return
+
+# Rest of your prediction code...
 if not data.empty and len(data) > 10:  # Require minimum 10 data points
     try:
         # 1. Prepare the data - ensure we have valid dates and prices
