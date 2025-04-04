@@ -93,6 +93,20 @@ end_date = datetime.today()
 start_date = end_date - timedelta(days=5*365)
 date_range = st.sidebar.date_input("Select Date Range", [start_date, end_date])
 
+def check_versions():
+    import pkg_resources
+    required = {
+        'yfinance': '0.2.38',
+        'pandas': '2.0.0',
+        'requests': '2.31.0'
+    }
+    for pkg, ver in required.items():
+        current = pkg_resources.get_distribution(pkg).version
+        if pkg_resources.parse_version(current) < pkg_resources.parse_version(ver):
+            st.warning(f"⚠️ {pkg} version {current} is below recommended {ver}")
+
+# Call this early in your app
+check_versions()
 @st.cache_data
 def get_asset_name(ticker, asset_type):
     try:
@@ -105,7 +119,20 @@ def get_asset_name(ticker, asset_type):
         st.error(f"Error fetching asset name: {str(e)}")
         return ticker
 
+def check_versions():
+    import pkg_resources
+    required = {
+        'yfinance': '0.2.38',
+        'pandas': '2.0.0',
+        'requests': '2.31.0'
+    }
+    for pkg, ver in required.items():
+        current = pkg_resources.get_distribution(pkg).version
+        if pkg_resources.parse_version(current) < pkg_resources.parse_version(ver):
+            st.warning(f"⚠️ {pkg} version {current} is below recommended {ver}")
 
+# Call this early in your app
+check_versions()
 
 
 @st.cache_data(ttl=60*5)
