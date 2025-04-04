@@ -5,6 +5,20 @@ from datetime import datetime, timedelta
 import plotly.graph_objects as go
 from sklearn.linear_model import LinearRegression
 import numpy as np
+from functools import wraps
+import time
+import random
+
+import yfinance as yf
+yf.pdr_override()  # Fix for some yfinance issues
+
+# Set user agent to prevent blocking
+import requests
+import urllib3
+urllib3.disable_warnings()
+session = requests.Session()
+session.headers.update({'User-Agent': 'Mozilla/5.0'})
+yf.set_session(session)
 
 # Configure page
 st.set_page_config(page_title=" MarketMatrix", layout="wide",
@@ -94,19 +108,30 @@ def get_asset_name(ticker, asset_type):
 
 
 
-@st.cache_data(ttl=60*5)  # Cache for 5 minutes
+@st.cache_data(ttl=60*5)
 def load_data(ticker, start_date, end_date):
     try:
-        data = yf.download(ticker, start=start_date, end=end_date)
+        data = yf.download(
+            ticker, 
+            start=start_date, 
+            end=end_date + timedelta(days=1),
+            progress=False,
+            threads=True
+        )
+        if data.empty:
+            st.warning(f"No data found for {ticker}. Trying again with different parameters...")
+            # Try alternative approach
+            ticker_obj = yf.Ticker(ticker)
+            data = ticker_obj.history(start=start_date, end=end_date + timedelta(days=1))
+            
         if data.empty:
             return pd.DataFrame()
+            
         data.reset_index(inplace=True)
         return data
     except Exception as e:
-        st.error(f"Error loading data: {str(e)}")
+        st.error(f"Error loading data for {ticker}: {str(e)}")
         return pd.DataFrame()
-
-
 
 
 def validate_ticker(ticker, asset_type):
@@ -177,7 +202,42 @@ def resolve_ticker(input_str, asset_type):
     return input_str
 
 
+def retry(max_retries=3, delay=1):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            retries = 0
+            while retries < max_retries:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    retries += 1
+                    if retries >= max_retries:
+                        raise e
+                    time.sleep(delay * (1 + random.random()))
+        return wrapper
+    return decorator
 
+# Then decorate your functions
+@retry(max_retries=3, delay=1)
+@st.cache_data(ttl=60*5)
+def load_data(ticker, start_date, end_date):
+    # ... existing code ...
+  
+
+def check_connection():
+    try:
+        response = requests.get("https://query1.finance.yahoo.com/v8/finance/chart/AAPL?range=1d")
+        st.write(f"Connection test status: {response.status_code}")
+        st.write(f"Response content: {response.text[:200]}...")
+        return response.status_code == 200
+    except Exception as e:
+        st.error(f"Connection test failed: {str(e)}")
+        return False
+
+# Call this somewhere in your app
+if st.sidebar.checkbox("Run connection test"):
+    check_connection()
 
 def display_stock_overview():
     st.subheader("📈 Stock Market Dashboard")
