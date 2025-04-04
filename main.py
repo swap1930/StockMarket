@@ -123,11 +123,6 @@ def check_connection():
         st.error(f"Connection test failed: {str(e)}")
         return False
 
-if st.sidebar.checkbox("Run connection test"):
-    if check_connection():
-        st.sidebar.success("✅ Connection to Yahoo Finance successful")
-    else:
-        st.sidebar.error("❌ Could not connect to Yahoo Finance")
 
 # Data loading function with retry and cache
 @retry(max_retries=3, delay=1)
