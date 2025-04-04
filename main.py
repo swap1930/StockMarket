@@ -383,54 +383,89 @@ def display_asset_analysis(ticker, asset_type):
     st.plotly_chart(ma_fig, use_container_width=True)
 
    # Replace the future prediction section with this code:
-
 st.subheader("📈 Future Price Prediction")
-if len(data) > 1:
+
+# Only proceed if we have enough data points
+if len(data) > 10:  # Changed from 1 to 10 for more reliable predictions
     try:
+        # Convert dates to ordinal values
         data['Date_Ordinal'] = data['Date'].map(pd.Timestamp.toordinal)
+        
+        # Train model with input validation
+        X = data[['Date_Ordinal']].values
+        y = data['Close'].values
+        
+        if len(X) < 2 or len(y) < 2:
+            raise ValueError("Insufficient data for prediction")
+            
         model = LinearRegression()
-        model.fit(data[['Date_Ordinal']], data['Close'])
+        model.fit(X, y)
         
-        future_dates = pd.date_range(data['Date'].iloc[-1], periods=30)
-        future_ordinals = future_dates.map(pd.Timestamp.toordinal)
-        future_preds = model.predict(np.array(future_ordinals).reshape(-1, 1))
+        # Generate future predictions
+        last_date = data['Date'].iloc[-1]
+        future_dates = pd.date_range(last_date, periods=30)
+        future_ordinals = np.array([d.toordinal() for d in future_dates]).reshape(-1, 1)
+        future_preds = model.predict(future_ordinals)
         
-        last_price = data['Close'].iloc[-1]
-        pred_change = float(future_preds[-1][0]) - float(last_price)
-        pred_change_pct = (pred_change / float(last_price)) * 100
+        # Calculate metrics with safety checks
+        last_price = float(data['Close'].iloc[-1])
+        last_pred = float(future_preds[-1])
         
+        pred_change = last_pred - last_price
+        pred_change_pct = (pred_change / last_price) * 100 if last_price != 0 else 0
+        
+        # Display metrics
         st.metric(
             "Projected Price in 30 Days",
-            f"${float(future_preds[-1][0]):.2f}",
+            f"${last_pred:.2f}",
             f"{pred_change_pct:.1f}% ({'↑' if pred_change >= 0 else '↓'} ${abs(pred_change):.2f})"
         )
-        st.info("⚠️ Note: Simple linear projection")
-
-        # Visualization tabs
-        tab1, tab2 = st.tabs(["📊 Price Distribution", "📈 Price Trend"])
+        st.warning("Note: Linear projections are simplistic estimates only")
+        
+        # Enhanced visualization
+        tab1, tab2 = st.tabs(["📈 Price Trend", "📋 Prediction Data"])
         
         with tab1:
             fig = go.Figure()
+            # Historical data
             fig.add_trace(go.Scatter(
-                x=future_dates, y=future_preds.flatten(),
-                mode='lines+markers', line=dict(width=2),
-                marker=dict(size=6), name='Predicted Price'
+                x=data['Date'], y=data['Close'],
+                mode='lines', name='Historical',
+                line=dict(color='#1f77b4')
             ))
-            fig.add_hline(
-                y=last_price, line_dash="dash",
-                annotation_text=f"Current: ${float(last_price):.2f}"
+            # Predicted data
+            fig.add_trace(go.Scatter(
+                x=future_dates, y=future_preds,
+                mode='lines+markers', name='Predicted',
+                line=dict(color='#ff7f0e', width=2)
+            ))
+            fig.update_layout(
+                height=500,
+                title="Price Projection",
+                xaxis_title="Date",
+                yaxis_title="Price ($)",
+                hovermode="x unified"
             )
-            fig.update_layout(height=400, xaxis_title="Date", yaxis_title="Price ($)")
             st.plotly_chart(fig, use_container_width=True)
         
         with tab2:
-            st.dataframe(pd.DataFrame({
+            prediction_df = pd.DataFrame({
                 'Date': future_dates,
-                'Predicted Price': [float(x[0]) for x in future_preds]
+                'Predicted Price': future_preds.round(2),
+                'Daily Change (%)': np.concatenate([
+                    [0],  # No change for first day
+                    np.diff(future_preds) / future_preds[:-1] * 100
+                ]).round(2)
+            })
+            st.dataframe(prediction_df.style.format({
+                'Predicted Price': '${:.2f}',
+                'Daily Change (%)': '{:.2f}%'
             }))
+            
     except Exception as e:
-        st.error(f"Could not generate prediction: {str(e)}")
-
+        st.error(f"⚠️ Prediction failed: {str(e)}")
+else:
+    st.warning("Not enough historical data to generate predictions (need at least 10 data points)")
 # Main app logic
 if not ticker:
     if asset_type == "Stock":
