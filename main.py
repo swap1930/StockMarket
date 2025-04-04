@@ -323,12 +323,24 @@ def display_asset_analysis(ticker, asset_type):
         change_pct = 0
 
     col1, col2, col3 = st.columns(3)
-    # In your display_asset_analysis function, change these lines:
-    col1.metric("Current Price", f"${float(latest_close):.2f}", f"{float(change_pct):.2f}%")
-    col2.metric("Day Range", f"${float(latest_low):.2f} - ${float(latest_high):.2f}")
-   # Replace the volume metric line with this more robust version:
-   col3.metric("Volume", f"{int(float(latest_volume)):,}" if pd.notna(latest_volume) else "N/A")
+       # In your display_asset_analysis function, replace the metrics section with:
 
+    col1, col2, col3 = st.columns(3)
+    col1.metric(
+        "Current Price", 
+        f"${float(latest_close):.2f}" if pd.notna(latest_close) else "N/A", 
+        f"{float(change_pct):.2f}%" if pd.notna(change_pct) else "N/A"
+    )
+    col2.metric(
+        "Day Range", 
+        f"${float(latest_low):.2f} - ${float(latest_high):.2f}" 
+        if all(pd.notna(x) for x in [latest_low, latest_high]) 
+        else "N/A"
+    )
+    col3.metric(
+        "Volume", 
+        f"{int(float(latest_volume)):,}" if pd.notna(latest_volume) else "N/A"
+    )
     # Recent data
     st.subheader("📄 Recent Market Data")
     st.dataframe(data.sort_values('Date', ascending=False).head(15), use_container_width=True)
