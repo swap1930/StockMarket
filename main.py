@@ -186,43 +186,32 @@ def get_asset_name(ticker, asset_type):
     except Exception:
         return ticker
 
-
+# Dashboard display functions
 def display_stock_overview():
     st.subheader("📈 Stock Market Dashboard")
-
+    
     # Major indices
     st.markdown("### Global Indices")
     indices = {
-        '^GSPC': ('S&P 500', '$'),
-        '^IXIC': ('NASDAQ', '$'),
-        '^DJI': ('Dow Jones', '$'),
-        '^NSEI': ('Nifty 50', '₹'),
-        '^HSI': ('Hang Seng', 'HK$'),
-        '^FTSE': ('FTSE 100', '£'),
+        '^GSPC': ('S&P 500', '$'), '^IXIC': ('NASDAQ', '$'), 
+        '^DJI': ('Dow Jones', '$'), '^NSEI': ('Nifty 50', '₹'),
+        '^HSI': ('Hang Seng', 'HK$'), '^FTSE': ('FTSE 100', '£'),
         '^GDAXI': ('DAX', '€')
     }
-
-    # Get index data
+    
     cols = st.columns(len(indices))
     for i, (ticker, (name, symbol)) in enumerate(indices.items()):
         try:
             data = yf.Ticker(ticker).history(period="2d")
             if not data.empty and len(data) > 1:
-                current = float(data['Close'].iloc[-1])
-                previous = float(data['Close'].iloc[-2])
+                current = data['Close'].iloc[-1]
+                previous = data['Close'].iloc[-2]
                 change = ((current - previous) / previous * 100) if previous != 0 else 0
-
-                cols[i].metric(
-                    name,
-                    f"{symbol}{current:,.2f}",
-                    f"{change:.2f}%",
-                    delta_color="normal"  # always use "normal"
-                )
-
+                cols[i].metric(name, f"{symbol}{current:,.2f}", f"{change:.2f}%")
             else:
-                current = float(data['Close'].iloc[-1]) if not data.empty else 0
+                current = data['Close'].iloc[-1] if not data.empty else 0
                 cols[i].metric(name, f"{symbol}{current:,.2f}", "N/A")
-        except Exception as e:
+        except Exception:
             cols[i].error(f"Error loading {name}")
 
     # Popular stocks
@@ -232,105 +221,69 @@ def display_stock_overview():
         try:
             hist = yf.Ticker(ticker).history(period="2d")
             if not hist.empty and len(hist) > 1:
-                current = float(hist['Close'].iloc[-1])
-                previous = float(hist['Close'].iloc[-2])
+                current = hist['Close'].iloc[-1]
+                previous = hist['Close'].iloc[-2]
                 change = ((current - previous) / previous * 100) if previous != 0 else 0
-
-                # Determine currency symbol
                 symbol = '$'
-                if '.NS' in ticker:
-                    symbol = '₹'
-                elif '.KS' in ticker:
-                    symbol = '₩'
-                elif '.T' in ticker:
-                    symbol = '¥'
-
+                if '.NS' in ticker: symbol = '₹'
+                elif '.KS' in ticker: symbol = '₩'
+                elif '.T' in ticker: symbol = '¥'
+                
                 stock_data[ticker] = {
-                    'name': name,
-                    'price': current,
-                    'change': change,
-                    'volume': int(hist['Volume'].iloc[-1]),
-                    'symbol': symbol
+                    'name': name, 'price': current, 'change': change,
+                    'volume': hist['Volume'].iloc[-1], 'symbol': symbol
                 }
-        except Exception as e:
-            st.error(f"Error loading {ticker}: {str(e)}")
+        except Exception:
+            pass
 
-    # Display in grid
     cols = st.columns(4)
     for i, (ticker, data) in enumerate(stock_data.items()):
         with cols[i % 4]:
             st.metric(
                 f"{data['name']} ({ticker})",
                 f"{data['symbol']}{data['price']:,.2f}",
-                f"{data['change']:.2f}%",
-                delta_color="normal"  # always use "normal"
+                f"{data['change']:.2f}%"
             )
-
             st.caption(f"Vol: {data['volume']:,}")
 
-    if st.button("🔄 Refresh Stock Data", key="refresh_stock"):
+    if st.button("🔄 Refresh Stock Data"):
         st.cache_data.clear()
-        st.rerun()
-
-
-
 
 def display_crypto_overview():
     st.subheader("💰 Cryptocurrency Dashboard")
-
-    # Top cryptos
     st.markdown("### Top Cryptocurrencies")
+    
     crypto_data = {}
-
     cols = st.columns(min(5, len(CRYPTO_EXAMPLES)))
     for i, (ticker, name) in enumerate(CRYPTO_EXAMPLES.items()):
         try:
             hist = yf.Ticker(ticker).history(period="2d")
             if not hist.empty and len(hist) > 1:
-                current = float(hist['Close'].iloc[-1])
-                previous = float(hist['Close'].iloc[-2])
+                current = hist['Close'].iloc[-1]
+                previous = hist['Close'].iloc[-2]
                 change = ((current - previous) / previous * 100) if previous != 0 else 0
-
-                cols[i % 5].metric(
-                    name,
-                    f"${current:,.2f}",
-                    f"{change:.2f}%",
-                    delta_color="normal"
-                )
-                cols[i % 5].caption(f"24h Vol: ${int(hist['Volume'].iloc[-1]):,}")
-
+                cols[i % 5].metric(name, f"${current:,.2f}", f"{change:.2f}%")
+                cols[i % 5].caption(f"24h Vol: ${hist['Volume'].iloc[-1]:,}")
                 crypto_data[ticker] = {'name': name, 'data': hist}
-        except Exception as e:
-            st.error(f"Error loading {ticker}: {str(e)}")
+        except Exception:
+            pass
 
-    # Price chart
     st.markdown("### Price Trends (24h)")
     if crypto_data:
         fig = go.Figure()
         for ticker, data in crypto_data.items():
             fig.add_trace(go.Scatter(
-                x=data['data'].index,
-                y=data['data']['Close'],
-                name=data['name'],
-                mode='lines+markers',
-                line=dict(width=1.5)
+                x=data['data'].index, y=data['data']['Close'],
+                name=data['name'], line=dict(width=1.5)
             ))
-
         fig.update_layout(
-            height=500,
-            xaxis_title="Time",
-            yaxis_title="Price (USD)",
-            template="plotly_dark",
-            hovermode="x unified"
+            height=500, xaxis_title="Time", yaxis_title="Price (USD)",
+            template="plotly_dark", hovermode="x unified"
         )
         st.plotly_chart(fig, use_container_width=True)
 
-    if st.button("🔄 Refresh Crypto Data", key="refresh_crypto"):
+    if st.button("🔄 Refresh Crypto Data"):
         st.cache_data.clear()
-        st.rerun()
-
-
-
 
 def display_asset_analysis(ticker, asset_type):
     if len(date_range) != 2:
@@ -344,378 +297,111 @@ def display_asset_analysis(ticker, asset_type):
         st.error("No data found. Please check the ticker symbol.")
         return
 
-    # Initialize future prediction variables with default values
-    future_dates = pd.Series(dtype='datetime64[ns]')
-    future_preds = np.array([])
-    last_price = 0.0
-
-    # Only calculate predictions if we have enough data
-    if len(data) > 1:
-        # 1. Calculate predictions
-        data['Date_Ordinal'] = pd.to_datetime(data['Date']).map(pd.Timestamp.toordinal)
-        model = LinearRegression()
-        model.fit(data[['Date_Ordinal']], data['Close'])
-
-        # Predict for next 30 days
-        future_dates = pd.date_range(data['Date'].iloc[-1], periods=30)
-        future_ordinals = future_dates.map(pd.Timestamp.toordinal)
-        future_preds = model.predict(np.array(future_ordinals).reshape(-1, 1))
-
-        # Convert predictions to float explicitly
-        future_preds = future_preds.flatten().astype(float)
-        last_price = float(data['Close'].iloc[-1])
-
-    # Asset header
+    # Basic metrics
     name = get_asset_name(ticker, asset_type)
     st.markdown(f"## 📊 {asset_type} Analysis: {name}")
 
-
-    # Get scalar values for metrics
-    latest_close = float(data.iloc[-1]['Close'])
-    latest_low = float(data.iloc[-1]['Low'])
-    latest_high = float(data.iloc[-1]['High'])
-    latest_volume = int(data.iloc[-1]['Volume'])
-
-    # Calculate percentage change safely
+    latest_close = data.iloc[-1]['Close']
+    latest_low = data.iloc[-1]['Low']
+    latest_high = data.iloc[-1]['High']
+    latest_volume = data.iloc[-1]['Volume']
+    
     if len(data) > 1:
-        prev_close = float(data.iloc[-2]['Close'])
-        change_pct = ((latest_close - prev_close) / prev_close * 100) if prev_close != 0 else 0
+        change_pct = ((latest_close - data.iloc[-2]['Close']) / data.iloc[-2]['Close'] * 100) 
     else:
         change_pct = 0
-        prev_close = latest_close
 
     col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric(
-            "Current Price",
-            f"${latest_close:.2f}",
-            f"{change_pct:.2f}%",
-            delta_color="normal"
-        )
-    with col2:
-        st.metric(
-            "Day Range",
-            f"${latest_low:.2f} - ${latest_high:.2f}"
-        )
-    with col3:
-        st.metric("Volume", f"{latest_volume:,}")
+    col1.metric("Current Price", f"${latest_close:.2f}", f"{change_pct:.2f}%")
+    col2.metric("Day Range", f"${latest_low:.2f} - ${latest_high:.2f}")
+    col3.metric("Volume", f"{latest_volume:,}")
 
+    # Recent data
+    st.subheader("📄 Recent Market Data")
+    st.dataframe(data.sort_values('Date', ascending=False).head(15), use_container_width=True)
 
-
-
-    # 📄 Recent Market Data (Last 15 Entries)
-    st.subheader("📄 Recent Market Data (Last 15 Entries)")
-    st.dataframe(
-        data.sort_values('Date', ascending=False).head(15).reset_index(drop=True),
-        use_container_width=True
-    )
-
-    # Show the current or predicted data based on the selected date
     if end_date == datetime.today().date():
         st.subheader("💹 Current Market Data")
-        st.dataframe(data.tail(1))  # Display the latest data row
+        st.dataframe(data.tail(1))
 
-
-
-
-    # 📉 Daily Returns with better visualization
+    # Daily returns analysis
     st.subheader("📉 Daily Return Analysis")
-    data['Daily Return'] = data['Close'].pct_change() * 100  # Convert to percentage
-
+    data['Daily Return'] = data['Close'].pct_change() * 100
+    
     col1, col2 = st.columns(2)
-
     with col1:
-        st.markdown("*Daily Return Distribution*")
-        hist_fig = go.Figure()
-        hist_fig.add_trace(go.Histogram(
-            x=data['Daily Return'].dropna(),
-            nbinsx=50,
-            marker_color='#3498DB',
-            opacity=0.7
+        hist_fig = go.Figure(go.Histogram(
+            x=data['Daily Return'].dropna(), nbinsx=50,
+            marker_color='#3498DB', opacity=0.7
         ))
-        hist_fig.update_layout(
-            height=400,
-            xaxis_title="Daily Return (%)",
-            yaxis_title="Frequency",
-            bargap=0.1
-        )
+        hist_fig.update_layout(height=400, xaxis_title="Daily Return (%)", yaxis_title="Frequency")
         st.plotly_chart(hist_fig, use_container_width=True)
-
+    
     with col2:
-        st.markdown("*Daily Returns Over Time*")
-        line_fig = go.Figure()
-        line_fig.add_trace(go.Scatter(
-            x=data['Date'],
-            y=data['Daily Return'],
-            mode='lines',
-            line=dict(color='#27AE60', width=1),
-            name='Daily Return'
+        line_fig = go.Figure(go.Scatter(
+            x=data['Date'], y=data['Daily Return'],
+            line=dict(color='#27AE60', width=1)
         ))
-        line_fig.update_layout(
-            height=400,
-            xaxis_title="Date",
-            yaxis_title="Return (%)",
-            showlegend=False
-        )
+        line_fig.update_layout(height=400, xaxis_title="Date", yaxis_title="Return (%)")
         st.plotly_chart(line_fig, use_container_width=True)
 
-    # Moving Averages Section (Updated to match style)
-    data['MA20'] = data['Close'].rolling(window=20).mean()
-    data['MA50'] = data['Close'].rolling(window=50).mean()
-
+    # Moving averages
     st.subheader("Moving Averages Analysis")
+    data['MA20'] = data['Close'].rolling(20).mean()
+    data['MA50'] = data['Close'].rolling(50).mean()
+    
+    ma_fig = go.Figure()
+    ma_fig.add_trace(go.Histogram(x=data['MA20'].dropna(), name='MA20', marker_color='#F39C12'))
+    ma_fig.add_trace(go.Histogram(x=data['MA50'].dropna(), name='MA50', marker_color='#27AE60'))
+    ma_fig.update_layout(barmode='overlay', xaxis_title='Moving Average Value', yaxis_title='Frequency')
+    st.plotly_chart(ma_fig, use_container_width=True)
 
-    # Create two columns for side-by-side charts
-
-
-
-    # Moving Averages Distribution
-    st.markdown("**Moving Averages Distribution**")
-    ma_dist_fig = go.Figure()
-    ma_dist_fig.add_trace(go.Histogram(
-        x=data['MA20'].dropna(),
-        name='MA20',
-        marker_color='#F39C12',
-        opacity=0.7
-    ))
-    ma_dist_fig.add_trace(go.Histogram(
-        x=data['MA50'].dropna(),
-        name='MA50',
-        marker_color='#27AE60',
-        opacity=0.7
-    ))
-    ma_dist_fig.update_layout(
-        barmode='overlay',
-        xaxis_title='Moving Average Value',
-        yaxis_title='Frequency',
-        template="plotly_white"
-    )
-    st.plotly_chart(ma_dist_fig, use_container_width=True)
-
-
-
-
-    # Future Price Prediction Section
+    # Future price prediction
     st.subheader("📈 Future Price Prediction")
+    if len(data) > 1:
+        data['Date_Ordinal'] = data['Date'].map(pd.Timestamp.toordinal)
+        model = LinearRegression()
+        model.fit(data[['Date_Ordinal']], data['Close'])
+        
+        future_dates = pd.date_range(data['Date'].iloc[-1], periods=30)
+        future_ordinals = future_dates.map(pd.Timestamp.toordinal)
+        future_preds = model.predict(np.array(future_ordinals).reshape(-1, 1))
+        
+        last_price = data['Close'].iloc[-1]
+        pred_change = future_preds[-1] - last_price
+        pred_change_pct = (pred_change / last_price) * 100
+        
+        st.metric(
+            "Projected Price in 30 Days",
+            f"${future_preds[-1]:.2f}",
+            f"{pred_change_pct:.1f}% ({'↑' if pred_change >= 0 else '↓'} ${abs(pred_change):.2f})"
+        )
+        st.info("⚠️ Note: Simple linear projection")
 
-    # 1. Calculate predictions
-    data['Date_Ordinal'] = pd.to_datetime(data['Date']).map(pd.Timestamp.toordinal)
-    model = LinearRegression()
-    model.fit(data[['Date_Ordinal']], data['Close'])
-
-    # Predict for next 30 days
-    future_dates = pd.date_range(data['Date'].iloc[-1], periods=30)
-    future_ordinals = future_dates.map(pd.Timestamp.toordinal)
-    future_preds = model.predict(np.array(future_ordinals).reshape(-1, 1))
-
-    # Convert predictions to float explicitly
-    future_preds = future_preds.flatten().astype(float)
-    last_price = float(data['Close'].iloc[-1])
-    pred_change = float(future_preds[-1]) - last_price
-    pred_change_pct = (pred_change / last_price) * 100
-
-    # Projected price metric
-    st.metric(
-        "Projected Price in 30 Days",
-        f"${float(future_preds[-1]):.2f}",
-        f"{pred_change_pct:.1f}% ({'↑' if pred_change >= 0 else '↓'} ${abs(pred_change):.2f})",
-        delta_color="normal"
-    )
-    st.info("⚠️ Note: Simple linear projection")
-
-
-    st.subheader("Predicted Market Data")
-    future_df = pd.DataFrame({
-        'Date': future_dates,
-        'Close': future_preds.flatten()
-    })
-    st.dataframe(future_df)
-
-    # Create tabs for different visualization styles
-    tab1, tab2 = st.tabs(["📊 Price Distribution", "📈 Price Trend"])
-    with tab1:
-        # Title
-        st.markdown("**Daily Price Trend**")
-
-        # Date range for predictions
-        pred_dates = pd.date_range(start=date_range[0], periods=len(future_preds))
-
-        # Create figure with proper sizing
-        pyramid_fig = go.Figure()
-
-        # Interpolate between the start and end prices
-        x_start = pred_dates[0]
-        x_end = pred_dates[-1]
-        y_start = latest_close
-        y_end = future_preds[-1]
-
-        # Steps for smoothness
-        steps = len(pred_dates)
-        x_interp = np.linspace(0, 1, steps)
-
-        # Detect price direction and apply proper curve
-        if y_end >= y_start:
-            y_interp = y_start + (y_end - y_start) * (0.5 - 0.5 * np.cos(np.pi * x_interp))
-            color = '#27AE60'  # Green for upward
-        else:
-            y_interp = y_start - abs(y_end - y_start) * (0.5 - 0.5 * np.cos(np.pi * x_interp))
-            color = '#E74C3C'  # Red for downward
-
-        # Create interpolated x-axis values
-        x_curve = pd.date_range(start=x_start, end=x_end, periods=steps)
-
-        # Add the smooth curve line
-        pyramid_fig.add_trace(go.Scatter(
-            x=x_curve,
-            y=y_interp,
-            mode='lines',
-            line=dict(color=color, width=3),
-            showlegend=False,
-            hoverinfo='skip'
-        ))
-
-        # Add current price point (blue dot)
-        pyramid_fig.add_trace(go.Scatter(
-            x=[pred_dates[0]],
-            y=[y_start],
-            mode='markers+text',
-            marker=dict(color='#3498DB', size=12),
-            text=["●"],
-            textposition="middle center",
-            textfont=dict(size=18),
-            showlegend=False,
-            hoverinfo='text',
-            hovertext=f"Current Price: ${y_start:.2f}"
-        ))
-
-        # Add predicted price point (purple dot)
-        pyramid_fig.add_trace(go.Scatter(
-            x=[pred_dates[-1]],
-            y=[y_end],
-            mode='markers+text',
-            marker=dict(color='#9B59B6', size=12),
-            text=["●"],
-            textposition="middle center",
-            textfont=dict(size=18),
-            showlegend=False,
-            hoverinfo='text',
-            hovertext=f"Predicted Price: ${y_end:.2f}"
-        ))
-
-        # Determine overall line direction
-        overall_change = y_end - y_start
-        arrow_symbol = "▲" if overall_change >= 0 else "▼"
-        arrow_color = '#27AE60' if overall_change >= 0 else '#E74C3C'
-
-        # Add directional arrows
-        for i in range(1, len(future_preds)):
-            xi = (pred_dates[i] - pred_dates[0]).days
-            yi_line = y_start + (y_end - y_start) * (xi / (pred_dates[-1] - pred_dates[0]).days)
-
-            pyramid_fig.add_annotation(
-                x=pred_dates[i],
-                y=yi_line,
-                text=arrow_symbol,
-                showarrow=False,
-                font=dict(color=arrow_color, size=12)
+        # Visualization tabs
+        tab1, tab2 = st.tabs(["📊 Price Distribution", "📈 Price Trend"])
+        
+        with tab1:
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=future_dates, y=future_preds.flatten(),
+                mode='lines+markers', line=dict(width=2),
+                marker=dict(size=6), name='Predicted Price'
+            ))
+            fig.add_hline(
+                y=last_price, line_dash="dash",
+                annotation_text=f"Current: ${last_price:.2f}"
             )
-
-        # Optimized layout settings to prevent overflow
-        pyramid_fig.update_layout(
-            template="plotly_white",
-            height=400,  # Reduced height for better fit
-            margin=dict(l=40, r=40, t=40, b=40),  # Balanced margins
-            hovermode="x unified",
-            showlegend=False,
-            xaxis=dict(
-                title="Date",
-                tickformat="%b %d",
-                rangeslider=dict(visible=False),  # Disable range slider to save space
-                automargin=True  # Auto-adjust margins
-            ),
-            yaxis=dict(
-                title="Price ($)",
-                range=[min(min(future_preds), y_start) * 0.99,
-                       max(max(future_preds), y_start) * 1.01],
-                automargin=True
-            )
-        )
-
-        # Hover formatting
-        pyramid_fig.update_traces(
-            hovertemplate="<b>%{x|%b %d}</b><br>Price: $%{y:.2f}<extra></extra>"
-        )
-
-
-        # 5. DISPLAY WITH FULL CONTROLS
-        st.plotly_chart(
-            pyramid_fig,
-            use_container_width=True,
-            config={
-                'modeBarButtonsToRemove': [
-                    'select2d',  # Keep this if you want rectangle select
-                    'lasso2d',  # Keep this if you want lasso select
-                ],
-                'displayModeBar': True,
-                'displaylogo': False,
-                'displayModeBar': 'hover'
-            }
-        )
-
-        # Legend (unchanged)
-        st.markdown("""
-                 <div style="text-align: center; margin-top: -10px;">
-                     <span style="color: #3498DB; font-weight: bold;">● Current Price</span>
-                     <span style="margin: 0 10px;">|</span>
-                     <span style="color: #9B59B6; font-weight: bold;">● Predicted Price</span>
-                     <span style="margin: 0 10px;">|</span>
-                     <span style="color: #27AE60; font-weight: bold;">▲ Increase</span>
-                     <span style="margin: 0 10px;">|</span>
-                     <span style="color: #E74C3C; font-weight: bold;">▼ Decrease</span>
-                 </div>
-                 """, unsafe_allow_html=True)
-
-    with tab2:
-        # Line Chart - Predicted Prices Over Time
-        st.markdown("**Predicted Price Trend**")
-
-        # Check trend direction
-        trend_color = '#27AE60' if future_preds[-1] >= future_preds[0] else '#E74C3C'
-
-        # Create line chart
-        fig_line = go.Figure()
-        fig_line.add_trace(go.Scatter(
-            x=future_dates,
-            y=future_preds,
-            mode='lines+markers',
-            line=dict(color=trend_color, width=2),
-            marker=dict(size=6),
-            name='Predicted Price'
-        ))
-
-        # Add reference line for current price
-        fig_line.add_hline(
-            y=last_price,
-            line_dash="dash",
-            line_color="#3498DB",
-            annotation_text=f"Current Price: ${last_price:.2f}",
-            annotation_position="bottom right"
-        )
-
-        fig_line.update_layout(
-            height=400,
-            xaxis_title="Date",
-            yaxis_title="Price ($)",
-            showlegend=False,
-            template="plotly_white"
-        )
-
-        st.plotly_chart(fig_line, use_container_width=True)
-
-
+            fig.update_layout(height=400, xaxis_title="Date", yaxis_title="Price ($)")
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with tab2:
+            st.dataframe(pd.DataFrame({
+                'Date': future_dates,
+                'Predicted Price': future_preds.flatten()
+            }))
 
 # Main app logic
-
 if not ticker:
     if asset_type == "Stock":
         display_stock_overview()
@@ -723,27 +409,10 @@ if not ticker:
         display_crypto_overview()
 else:
     resolved_ticker = resolve_ticker(ticker, asset_type)
-
-    # Always try to load data first
-    start_date, end_date = date_range
-    data = load_data(resolved_ticker, start_date, end_date + timedelta(days=1))
-
+    data = load_data(resolved_ticker, date_range[0], date_range[1] + timedelta(days=1))
+    
     if data.empty:
-        # Only show error if we can't get data
-        if asset_type == "Stock":
-            example_tickers = ['AAPL', 'RELIANCE.NS', '005930.KS']
-            example_names = ['Apple', 'Reliance', 'Samsung']
-            st.error(
-                f"⚠️ Could not find data for '{ticker}'. Valid examples: "
-                f"{', '.join(example_tickers)} or {', '.join(example_names)}"
-            )
-        else:
-            example_tickers = ['BTC-USD', 'SOL-USD']
-            example_names = ['Bitcoin', 'Solana']
-            st.error(
-                f"⚠️ Could not find data for '{ticker}'. Valid examples: "
-                f"{', '.join(example_tickers)} or {', '.join(example_names)}"
-            )
+        examples = (STOCK_EXAMPLES if asset_type == "Stock" else CRYPTO_EXAMPLES)
+        st.error(f"⚠️ Could not find data for '{ticker}'. Try: {', '.join(list(examples.keys())[:3])}")
     else:
         display_asset_analysis(resolved_ticker, asset_type)
-
