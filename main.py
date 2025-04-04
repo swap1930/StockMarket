@@ -446,7 +446,7 @@ def display_asset_analysis(ticker, asset_type):
 
     # Create tabs for different visualization styles
     tab1, tab2 = st.tabs(["📊 Price Distribution", "📈 Price Trend"])
-    with tab1:
+      with tab1:
         # Title
         st.markdown("**Daily Price Trend**")
 
@@ -459,8 +459,10 @@ def display_asset_analysis(ticker, asset_type):
         # Interpolate between the start and end prices
         x_start = pred_dates[0]
         x_end = pred_dates[-1]
-       y_start = float(data['Close'].iloc[-1])
-       y_end = float(future_preds[-1])
+
+        # ✅ Make sure these lines are correctly indented
+        y_start = float(data['Close'].iloc[-1])
+        y_end = float(future_preds[-1])
 
 
         # Steps for smoothness
