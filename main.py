@@ -33,8 +33,6 @@ except AttributeError:
 # Configure requests session for yfinance
 urllib3.disable_warnings()
 
-yf.pdr_override()  # Only needed if using pandas_datareader compatibility
-
 # Set yfinance options
 yf.set_option("use_pydantic", False)
 
