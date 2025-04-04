@@ -496,8 +496,7 @@ else:
     Current data points: {}
     """.format(len(data)))
 
-
-# Main app logic
+# Main app logic - ensure data is always defined
 if not ticker:
     if asset_type == "Stock":
         display_stock_overview()
@@ -507,8 +506,8 @@ else:
     resolved_ticker = resolve_ticker(ticker, asset_type)
     data = load_data(resolved_ticker, date_range[0], date_range[1] + timedelta(days=1))
     
-    if data.empty:
+    if data is None or data.empty:
         examples = (STOCK_EXAMPLES if asset_type == "Stock" else CRYPTO_EXAMPLES)
-        st.error(f"⚠️ Could not find data for '{ticker}'. Try: {', '.join(list(examples.keys())[:3])}")
+        st.error(f"⚠️ Could not load data for '{ticker}'. Try: {', '.join(list(examples.keys())[:3])}")
     else:
-        display_asset_analysis(resolved_ticker, asset_type)
+        display_asset_analysis(resolved_ticker, asset_type, data)  # Pass data as parameter
