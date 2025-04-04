@@ -459,8 +459,9 @@ def display_asset_analysis(ticker, asset_type):
         # Interpolate between the start and end prices
         x_start = pred_dates[0]
         x_end = pred_dates[-1]
-        y_start = latest_close
-        y_end = future_preds[-1]
+       y_start = float(data['Close'].iloc[-1])
+       y_end = float(future_preds[-1])
+
 
         # Steps for smoothness
         steps = len(pred_dates)
