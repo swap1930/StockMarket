@@ -132,22 +132,20 @@ def load_data(ticker, start_date, end_date):
         data = yf.download(
             ticker, 
             start=start_date, 
-            end=end_date + timedelta(days=1),
+            end=end_date,
             progress=False,
             threads=True
         )
+        
         if data.empty:
             ticker_obj = yf.Ticker(ticker)
-            data = ticker_obj.history(start=start_date, end=end_date + timedelta(days=1))
+            data = ticker_obj.history(start=start_date, end=end_date)
             
-        if not data.empty:
-            data.reset_index(inplace=True)
-            return data
-        return pd.DataFrame()
+        return data.reset_index() if not data.empty else pd.DataFrame()
+        
     except Exception as e:
-        st.error(f"Error loading data for {ticker}: {str(e)}")
+        st.error(f"Error loading data: {str(e)}")
         return pd.DataFrame()
-
 # Ticker resolution functions
 def resolve_ticker(input_str, asset_type):
     input_str = input_str.strip().upper()
