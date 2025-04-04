@@ -19,8 +19,17 @@ except ImportError:
     import importlib_metadata  # Python < 3.8
 
 # Initialize yfinance with proper settings
-yf.pdr_override()
-
+# Initialize yfinance with proper settings
+try:
+    # Try the new recommended initialization first
+    yf.set_option("use_pydantic", False)
+except AttributeError:
+    # Fallback to older initialization if needed
+    try:
+        yf.pdr_override()  # Only for older yfinance versions
+    except AttributeError:
+        pass  # Skip if neither method is available
+        
 # Configure requests session for yfinance
 urllib3.disable_warnings()
 session = requests.Session()
