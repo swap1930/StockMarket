@@ -466,6 +466,9 @@ if len(data) > 10:  # Changed from 1 to 10 for more reliable predictions
         st.error(f"⚠️ Prediction failed: {str(e)}")
 else:
     st.warning("Not enough historical data to generate predictions (need at least 10 data points)")
+
+
+
 # Main app logic
 if not ticker:
     if asset_type == "Stock":
