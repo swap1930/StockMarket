@@ -11,7 +11,12 @@ import random
 import requests
 import urllib3
 from packaging import version
-import pkg_resources
+
+# Modern package version check import
+try:
+    from importlib import metadata as importlib_metadata
+except ImportError:
+    import importlib_metadata  # Python < 3.8
 
 # Initialize yfinance with proper settings
 yf.pdr_override()
@@ -41,7 +46,6 @@ hide_st_style = """
 """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# Version check function
 def check_versions():
     required = {
         'yfinance': '0.2.38',
@@ -50,7 +54,7 @@ def check_versions():
     }
     for pkg, ver in required.items():
         try:
-            current = pkg_resources.get_distribution(pkg).version
+            current = importlib_metadata.version(pkg)
             if version.parse(current) < version.parse(ver):
                 st.warning(f"⚠️ {pkg} version {current} is below recommended {ver}")
         except Exception as e:
