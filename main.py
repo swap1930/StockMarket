@@ -288,6 +288,7 @@ def display_crypto_overview():
 
     if st.button("🔄 Refresh Crypto Data"):
         st.cache_data.clear()
+        
 def display_asset_analysis(ticker, asset_type):
     """Display detailed analysis for a given asset"""
     # 1. Validate date range input
@@ -369,11 +370,14 @@ def display_asset_analysis(ticker, asset_type):
     )
 
     # Show the current or predicted data based on the selected date
+    
     if end_date == datetime.today().date():
-            st.dataframe(
-                data.tail(1).reset_index(drop=True),
-                use_container_width=True
-            )
+        st.subheader("💹 Current Market Data")
+        st.dataframe(
+            data.tail(1).reset_index(drop=True),
+            use_container_width=True,
+            height=100
+        )
 
 
     # Daily returns analysis
@@ -438,12 +442,16 @@ def display_asset_analysis(ticker, asset_type):
     st.info("⚠️ Note: Simple linear projection")
 
         
-    st.subheader("Predicted Market Data")
+     st.subheader("Predicted Market Data")
     future_df = pd.DataFrame({
-    'Date': future_dates,
-    'Close': future_preds.flatten()
+        'Date': future_dates,
+        'Close': future_preds.flatten()
     })
-    st.dataframe(future_df)
+    st.dataframe(
+        future_df.reset_index(drop=True),
+        use_container_width=True,
+        height=400
+    )
 
     # Create tabs for different visualization styles
     tab1, tab2 = st.tabs(["📊 Price Distribution", "📈 Price Trend"])
