@@ -446,7 +446,7 @@ def display_asset_analysis(ticker, asset_type):
 
     # Create tabs for different visualization styles
     tab1, tab2 = st.tabs(["📊 Price Distribution", "📈 Price Trend"])
-      with tab1:
+    with tab1:
         # Title
         st.markdown("**Daily Price Trend**")
 
