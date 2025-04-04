@@ -326,7 +326,8 @@ def display_asset_analysis(ticker, asset_type):
     # In your display_asset_analysis function, change these lines:
     col1.metric("Current Price", f"${float(latest_close):.2f}", f"{float(change_pct):.2f}%")
     col2.metric("Day Range", f"${float(latest_low):.2f} - ${float(latest_high):.2f}")
-    col3.metric("Volume", f"{latest_volume:,}")
+   # Replace the volume metric line with this more robust version:
+   col3.metric("Volume", f"{int(float(latest_volume)):,}" if pd.notna(latest_volume) else "N/A")
 
     # Recent data
     st.subheader("📄 Recent Market Data")
