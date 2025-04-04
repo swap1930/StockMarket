@@ -323,8 +323,9 @@ def display_asset_analysis(ticker, asset_type):
         change_pct = 0
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("Current Price", f"${latest_close:.2f}", f"{change_pct:.2f}%")
-    col2.metric("Day Range", f"${latest_low:.2f} - ${latest_high:.2f}")
+    # In your display_asset_analysis function, change these lines:
+    col1.metric("Current Price", f"${float(latest_close):.2f}", f"{float(change_pct):.2f}%")
+    col2.metric("Day Range", f"${float(latest_low):.2f} - ${float(latest_high):.2f}")
     col3.metric("Volume", f"{latest_volume:,}")
 
     # Recent data
