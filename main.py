@@ -437,12 +437,12 @@ def display_asset_analysis(ticker, asset_type):
     st.info("⚠️ Note: Simple linear projection")
 
 
-    st.subheader("Predicted Market Data")
-    future_df = pd.DataFrame({
-        'Date': future_dates,
-        'Close': future_preds.flatten()
-    })
-    st.dataframe(future_df)
+st.subheader("Predicted Market Data")
+future_df = pd.DataFrame({
+    'Date': future_dates,
+    'Close': future_preds.flatten()
+})
+st.dataframe(future_df)
 
     # Create tabs for different visualization styles
     tab1, tab2 = st.tabs(["📊 Price Distribution", "📈 Price Trend"])
